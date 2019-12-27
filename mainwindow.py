@@ -108,6 +108,8 @@ class MainWindow(QtWidgets.QMainWindow, Ui_MainWindow):
         if e.key() == QtCore.Qt.Key_F5:
             self.close()
 
+flag = 0
+pre_user_points = []
 
 def pushButton_pushedbtn1_1(self):
     print("btn1_1")
@@ -118,11 +120,89 @@ def pushButton_pushedbtn2_1(self):
 
 
 def pushButton_pushedbtn3_1(self):
-    print("btn3_1")
+    cap = cv2.VideoCapture('featureTracking.mp4')
+    ret, img = cap.read()
+    global flag, pre_user_points
+
+  
+    def draw_circle(event, x, y, flags, param):
+        global ix, iy, drawing, mode, flag, X, C, pre_user_points
+       
+        if event == cv2.EVENT_LBUTTONDOWN:
+            cv2.circle(img, (x, y), 3, (0, 0, 255), 5, 16)
+            pre_user_points.append([[x, y]])
+
+        if event == cv2.EVENT_RBUTTONDOWN:
+            global flag
+            flag = 1
+
+    while (1):
+        cv2.setMouseCallback('image', draw_circle)
+
+        cv2.imshow('image', img)
+        cv2.waitKey(100) == ord('q') 
+        if flag == 1:
+            break
+
+    cv2.destroyAllWindows()
 
 
 def pushButton_pushedbtn3_2(self):
-    print("btn3_2")
+    cap = cv2.VideoCapture("featureTracking.mp4")
+
+    global pre_user_points
+    use = np.array(pre_user_points, dtype=np.float32)
+
+    feature_params = dict(maxCorners=100,
+                          qualityLevel=0.3,
+                          minDistance=7,
+                          blockSize=7)
+    
+    lk_params = dict(winSize=(11, 11),
+                     maxLevel=2,
+                     criteria=(cv2.TERM_CRITERIA_EPS | cv2.TERM_CRITERIA_COUNT, 10, 0.03))
+
+    # Create some random colors
+    color = np.random.randint(0, 255, (100, 3))
+    # Take first frame and find corners in it
+    ret, old_frame = cap.read()
+    old_gray = cv2.cvtColor(old_frame, cv2.COLOR_BGR2GRAY)
+
+    
+    mask = np.zeros_like(old_frame)
+
+
+   
+    cv2.namedWindow("frame")
+
+    while (1):
+        ret, frame = cap.read()
+        frame_gray = cv2.cvtColor(frame, cv2.COLOR_BGR2GRAY)
+
+        # calculate optical flow
+        p1, st, err = cv2.calcOpticalFlowPyrLK(old_gray, frame_gray, use, None, **lk_params)
+        # Select good points
+        good_new = p1[st == 1]
+        good_old = use[st == 1]
+
+        # draw the tracks
+        for i, (new, old) in enumerate(zip(good_new, good_old)):
+            a, b = new.ravel()
+            c, d = old.ravel()
+            mask = cv2.line(mask, (a, b), (c, d), (0, 0, 255), 2)
+            frame = cv2.circle(frame, (a, b), 5, color[i].tolist(), -1)
+        img = cv2.add(frame, mask)
+        cv2.imshow('frame', img)
+        k = cv2.waitKey(30) & 0xff
+
+        if k == 27:
+            break
+        
+        old_gray = frame_gray.copy()
+        use = good_new.reshape(-1, 1, 2)
+
+    cv2.destroyAllWindows()
+    cap.release()
 
 
 def pushButton_pushedbtn4_1(self):
